@@ -1,0 +1,17 @@
+Controle de Estoque (TypeScript + Vite)
+=======================================
+
+  index.html          a página (os ids são usados pelo código)
+  css/estoque.css     a aparência
+  src/tipos.ts        Categoria, Situacao, Produto, NovoProduto
+  src/dados.ts        produtos iniciais
+  src/servicos.ts     adicionarProduto, situacaoDoProduto, valorTotal, transformar
+  src/dom.ts          funções de acesso à tela
+  src/main.ts         desenha a tela e trata o formulário
+
+Como rodar
+1. npm install
+2. npm run dev   e abra http://localhost:5173
+3. npm run verificar   confere os tipos
+
+Atenção: NÃO abra o index.html com dois cliques; use o npm run dev.

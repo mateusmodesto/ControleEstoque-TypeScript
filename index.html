@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Controle de Estoque</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./css/estoque.css" />
+  </head>
+  <body>
+    <header class="cabecalho">
+      <div class="cabecalho__conteudo">
+        <div class="cabecalho__logo" aria-hidden="true">▦</div>
+        <div>
+          <h1 class="cabecalho__titulo"><span id="nome-do-sistema">—</span></h1>
+          <p class="cabecalho__subtitulo"><span id="versao">—</span> · <span id="data-de-hoje">—</span></p>
+        </div>
+      </div>
+    </header>
+    <main>
+      <ul class="estatisticas">
+        <li class="estatistica estatistica--azul">
+          <span class="estatistica__rotulo">Produtos</span>
+          <span class="estatistica__numero" id="total">0</span>
+        </li>
+        <li class="estatistica estatistica--verde">
+          <span class="estatistica__rotulo">Itens em estoque</span>
+          <span class="estatistica__numero" id="itens">0</span>
+        </li>
+        <li class="estatistica estatistica--laranja">
+          <span class="estatistica__rotulo">Estoque baixo</span>
+          <span class="estatistica__numero" id="baixos">0</span>
+        </li>
+        <li class="estatistica estatistica--roxo">
+          <span class="estatistica__rotulo">Valor em estoque</span>
+          <span class="estatistica__numero" id="valor">R$ 0,00</span>
+        </li>
+      </ul>
+
+      <section class="cartao">
+        <h2 class="cartao__titulo">Novo produto</h2>
+        <form class="formulario" id="formulario">
+          <div class="campo campo--largo">
+            <label class="campo__rotulo" for="nome">Nome</label>
+            <input class="campo__entrada" id="nome" type="text" autocomplete="off" placeholder="Ex.: Arroz 5kg" />
+          </div>
+          <div class="campo">
+            <label class="campo__rotulo" for="categoria">Categoria</label>
+            <select class="campo__selecao" id="categoria">
+              <option value="alimentos">Alimentos</option>
+              <option value="limpeza">Limpeza</option>
+              <option value="papelaria">Papelaria</option>
+              <option value="eletronicos">Eletrônicos</option>
+            </select>
+          </div>
+          <div class="campo campo--curto">
+            <label class="campo__rotulo" for="quantidade">Quantidade</label>
+            <input class="campo__entrada" id="quantidade" type="number" min="0" step="1" value="0" />
+          </div>
+          <div class="campo campo--curto">
+            <label class="campo__rotulo" for="minimo">Estoque mínimo</label>
+            <input class="campo__entrada" id="minimo" type="number" min="0" step="1" value="5" />
+          </div>
+          <div class="campo campo--curto">
+            <label class="campo__rotulo" for="preco">Preço (R$)</label>
+            <input class="campo__entrada" id="preco" type="number" min="0" step="0.01" placeholder="0,00" />
+          </div>
+          <button class="botao botao--primario" type="submit">+ Cadastrar</button>
+        </form>
+        <p class="campo__erro" id="erro" role="alert"></p>
+      </section>
+
+      <p class="aviso" id="repor" hidden></p>
+
+      <div class="tabela-wrapper">
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th class="tabela__produto">Produto</th>
+              <th>Categoria</th>
+              <th>Quantidade</th>
+              <th>Preço</th>
+              <th>Situação</th>
+              <th>Cadastrado em</th>
+            </tr>
+          </thead>
+          <tbody id="lista"></tbody>
+        </table>
+      </div>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
