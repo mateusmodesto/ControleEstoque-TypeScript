@@ -34,6 +34,25 @@ CREATE TABLE produtos (
 );
 
 -- -------------------------------------------------------------
+-- movimentacoes: o log. Cada cadastro, entrada, saída ou exclusão
+-- vira uma linha. O nome do produto é copiado de propósito: se o
+-- produto for excluído, o histórico continua legível (produto_id
+-- vira NULL, mas produto_nome permanece).
+-- -------------------------------------------------------------
+CREATE TABLE movimentacoes (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  produto_id    INT UNSIGNED NULL,
+  produto_nome  VARCHAR(120) NOT NULL,
+  tipo          ENUM('cadastro', 'entrada', 'saida', 'exclusao') NOT NULL,
+  quantidade    INT UNSIGNED NOT NULL,   -- quantas unidades se moveram
+  saldo         INT UNSIGNED NOT NULL,   -- quanto ficou em estoque depois
+  criado_em     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT pk_movimentacoes PRIMARY KEY (id),
+  CONSTRAINT fk_movimentacoes_produto FOREIGN KEY (produto_id)
+    REFERENCES produtos (id) ON DELETE SET NULL
+);
+
+-- -------------------------------------------------------------
 -- DADOS DE EXEMPLO — os mesmos seis produtos do dados.ts
 -- -------------------------------------------------------------
 INSERT INTO produtos (nome, descricao, categoria, quantidade, estoque_minimo, preco) VALUES

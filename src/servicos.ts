@@ -1,38 +1,4 @@
-import type { NovoProduto, Produto, Situacao } from "./tipos";
-
-// Gera o próximo id a partir do maior id já existente
-function gerarId(lista: Produto[]): number {
-    let maior = 0;
-    for (const produto of lista) {
-        if (produto.id > maior) {
-            maior = produto.id;
-        }
-    }
-    return maior + 1;
-}
-
-// Cadastra um produto: o usuário informa só o essencial
-export function adicionarProduto(lista: Produto[], dados: NovoProduto): Produto {
-    if (dados.nome.trim().length < 3) {
-        throw new Error("O nome precisa ter pelo menos 3 caracteres.");
-    }
-    if (!Number.isInteger(dados.quantidade) || dados.quantidade < 0) {
-        throw new Error("A quantidade deve ser um número inteiro maior ou igual a zero.");
-    }
-    if (!Number.isInteger(dados.estoqueMinimo) || dados.estoqueMinimo < 0) {
-        throw new Error("O estoque mínimo deve ser um número inteiro maior ou igual a zero.");
-    }
-    if (!(dados.preco > 0)) {
-        throw new Error("O preço deve ser maior que zero.");
-    }
-    const produto: Produto = {
-        ...dados,
-        id: gerarId(lista),
-        criadoEm: new Date(),
-    };
-    lista.push(produto);
-    return produto;
-}
+import type { Produto, Situacao } from "./tipos";
 
 // Classifica o produto pela quantidade em estoque
 export function situacaoDoProduto(produto: Produto): Situacao {

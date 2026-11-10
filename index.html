@@ -80,6 +80,40 @@
         </form>
       </dialog>
 
+      <dialog class="janela" id="janela-edicao">
+        <h2 class="janela__titulo">Editar produto</h2>
+        <div class="janela__corpo">
+          <dl class="detalhes">
+            <div class="detalhes__item detalhes__item--largo"><dt>Produto</dt><dd id="edicao-nome">—</dd></div>
+            <div class="detalhes__item"><dt>Categoria</dt><dd id="edicao-categoria">—</dd></div>
+            <div class="detalhes__item"><dt>Preço</dt><dd id="edicao-preco">—</dd></div>
+            <div class="detalhes__item"><dt>Estoque mínimo</dt><dd id="edicao-minimo">—</dd></div>
+            <div class="detalhes__item"><dt>Situação</dt><dd id="edicao-situacao">—</dd></div>
+            <div class="detalhes__item detalhes__item--largo detalhes__item--destaque">
+              <dt>Quantidade em estoque</dt><dd id="edicao-quantidade">0</dd>
+            </div>
+          </dl>
+          <div class="campo">
+            <label class="campo__rotulo" for="edicao-valor">Quantidade a movimentar</label>
+            <input class="campo__entrada" id="edicao-valor" type="number" min="1" step="1" value="1" />
+          </div>
+          <p class="campo__erro" id="erro-edicao" role="alert"></p>
+          <div class="janela__acoes janela__acoes--dupla">
+            <button class="botao" id="retirar-estoque" type="button">− Retirar</button>
+            <button class="botao botao--primario" id="adicionar-estoque" type="button">+ Adicionar</button>
+          </div>
+          <section class="janela__historico">
+            <h3 class="janela__subtitulo">Movimentações deste produto</h3>
+            <ol class="tempo" id="historico-produto"></ol>
+          </section>
+        </div>
+        <div class="janela__rodape">
+          <button class="botao botao--perigo" id="excluir-produto" type="button">Excluir produto</button>
+          <button class="botao" id="fechar-edicao" type="button">Fechar</button>
+        </div>
+      </dialog>
+
+      <p class="campo__erro" id="erro-tabela" role="alert"></p>
       <p class="aviso" id="repor" hidden></p>
 
       <div class="tabela-wrapper">
@@ -92,9 +126,28 @@
               <th>Preço</th>
               <th>Situação</th>
               <th>Cadastrado em</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody id="lista"></tbody>
+        </table>
+      </div>
+
+      <div class="barra">
+        <h2 class="barra__titulo">Histórico de movimentações</h2>
+      </div>
+      <div class="tabela-wrapper">
+        <table class="tabela tabela--historico">
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Produto</th>
+              <th>Movimento</th>
+              <th>Quanto</th>
+              <th>Saldo</th>
+            </tr>
+          </thead>
+          <tbody id="historico"></tbody>
         </table>
       </div>
     </main>
