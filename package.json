@@ -1,10 +1,11 @@
 {
   "name": "controle-de-estoque",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "api": "npm --prefix api run dev",
     "build": "vite build",
     "verificar": "tsc --noEmit"
   },

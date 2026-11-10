@@ -6,7 +6,7 @@
     <title>Controle de Estoque</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./css/estoque.css" />
   </head>
   <body>
@@ -39,8 +39,13 @@
         </li>
       </ul>
 
-      <section class="cartao">
-        <h2 class="cartao__titulo">Novo produto</h2>
+      <div class="barra">
+        <h2 class="barra__titulo">Produtos</h2>
+        <button class="botao botao--primario" id="abrir-cadastro" type="button">+ Novo produto</button>
+      </div>
+
+      <dialog class="janela" id="janela-cadastro">
+        <h2 class="janela__titulo">Novo produto</h2>
         <form class="formulario" id="formulario">
           <div class="campo campo--largo">
             <label class="campo__rotulo" for="nome">Nome</label>
@@ -67,10 +72,13 @@
             <label class="campo__rotulo" for="preco">Preço (R$)</label>
             <input class="campo__entrada" id="preco" type="number" min="0" step="0.01" placeholder="0,00" />
           </div>
-          <button class="botao botao--primario" type="submit">+ Cadastrar</button>
+          <p class="campo__erro" id="erro" role="alert"></p>
+          <div class="janela__acoes">
+            <button class="botao" id="cancelar-cadastro" type="button">Cancelar</button>
+            <button class="botao botao--primario" type="submit">Cadastrar</button>
+          </div>
         </form>
-        <p class="campo__erro" id="erro" role="alert"></p>
-      </section>
+      </dialog>
 
       <p class="aviso" id="repor" hidden></p>
 

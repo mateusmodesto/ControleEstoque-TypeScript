@@ -23,3 +23,11 @@ export function selecao(id: string): HTMLSelectElement {
   }
   return encontrado;
 }
+
+export function janela(id: string): HTMLDialogElement {
+  const encontrado = elemento(id);
+  if (!(encontrado instanceof HTMLDialogElement)) {
+    throw new Error(`O elemento "${id}" não é um <dialog>`);
+  }
+  return encontrado;
+}

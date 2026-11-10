@@ -1,16 +1,16 @@
-import { campo, elemento, selecao } from "./dom";
-import { produtos } from "./dados";
+import { campo, elemento, janela, selecao } from "./dom";
+import { buscarProduto, listarProdutos } from "./api";
 import type { Categoria, Produto, Situacao } from "./tipos";
-import { adicionarProduto, situacaoDoProduto, transformar, valorTotal } from "./servicos";
+import { adicionarProduto, situacaoDoProduto, valorTotal } from "./servicos";
 
 elemento("nome-do-sistema").textContent = "Controle de Estoque";
-elemento("versao").textContent = "v0.2.0";
+elemento("versao").textContent = "v0.3.0";
 elemento("data-de-hoje").textContent = new Date().toLocaleDateString("pt-BR");
 
 console.log("Controle de Estoque iniciado."); // aparece no F12
 
-// O estado do programa: a lista que está valendo agora
-const lista: Produto[] = [...produtos];
+// Começa vazia: quem preenche é a API (e por isso é let, não const)
+let lista: Produto[] = [];
 
 const rotulosDeSituacao: Record<Situacao, string> = {
     normal: "Normal",
@@ -91,24 +91,21 @@ function criarLinhaVazia(): HTMLTableRowElement {
 
 // A função que desenha a tela inteira a partir da lista
 function desenhar(): void {
-    const linhas = transformar(lista, criarLinha); // função de alta ordem
+    // map: cada produto vira uma linha da tabela
+    const linhas = lista.map(criarLinha);
     elemento("lista").replaceChildren(...(linhas.length > 0 ? linhas : [criarLinhaVazia()]));
 
-    let itens = 0;
-    let baixos = 0;
-    for (const produto of lista) {
-        itens += produto.quantidade;
-        if (situacaoDoProduto(produto) !== "normal") {
-            baixos++;
-        }
-    }
+    // filter: só os que passam no teste
+    const baixos = lista.filter((p) => situacaoDoProduto(p) !== "normal");
+    // reduce: soma as quantidades de todos os produtos
+    const itens = lista.reduce((soma, p) => soma + p.quantidade, 0);
     elemento("total").textContent = String(lista.length);
     elemento("itens").textContent = String(itens);
-    elemento("baixos").textContent = String(baixos);
+    elemento("baixos").textContent = String(baixos.length);
     elemento("valor").textContent = formatarMoeda(valorTotal(lista));
 
     // Aviso: o primeiro produto que precisa de reposição
-    const critico = lista.find((p) => situacaoDoProduto(p) !== "normal");
+    const critico = baixos[0];
     const aviso = elemento("repor");
     if (critico) {
         aviso.textContent = `Repor primeiro: #${critico.id} ${critico.nome} (${critico.quantidade} em estoque, mínimo ${critico.estoqueMinimo})`;
@@ -118,6 +115,27 @@ function desenhar(): void {
     }
 }
 
+// A janela (pop-up) de cadastro: um <dialog> do HTML
+const janelaCadastro = janela("janela-cadastro");
+
+elemento("abrir-cadastro").addEventListener("click", () => {
+    elemento("erro").textContent = "";
+    janelaCadastro.showModal(); // abre por cima da página, com o fundo escurecido
+    campo("nome").focus();
+});
+
+elemento("cancelar-cadastro").addEventListener("click", () => {
+    janelaCadastro.close();
+});
+
+// Clicar no fundo escurecido (fora da janela) também fecha
+janelaCadastro.addEventListener("click", (evento) => {
+    if (evento.target === janelaCadastro) {
+        janelaCadastro.close();
+    }
+});
+
+// O cadastro ainda grava só na tela. Na próxima aula ele vai para o banco.
 // O formulário: a função abaixo é um CALLBACK — quem a chama é o navegador
 elemento("formulario").addEventListener("submit", (evento) => {
     evento.preventDefault(); // sem isto, a página recarrega e tudo se perde
@@ -134,6 +152,7 @@ elemento("formulario").addEventListener("submit", (evento) => {
         campo("quantidade").value = "0";
         campo("preco").value = "";
         desenhar(); // mudou a lista? desenhe de novo
+        janelaCadastro.close(); // deu certo: fecha o pop-up
     } catch (erro) {
         if (erro instanceof Error) {
             elemento("erro").textContent = erro.message;
@@ -141,4 +160,25 @@ elemento("formulario").addEventListener("submit", (evento) => {
     }
 });
 
-desenhar(); // primeiro desenho da tela
+// O começo do programa: busca no banco, depois desenha
+async function iniciar(): Promise<void> {
+    try {
+        lista = await listarProdutos();
+        desenhar();
+
+        // find no banco: pode não encontrar
+        const procurado = await buscarProduto(3);
+        if (procurado) {
+            console.log(`Encontrado: ${procurado.nome}`);
+        } else {
+            console.log("Produto #3 não existe.");
+        }
+    } catch (erro) {
+        if (erro instanceof Error) {
+            elemento("erro").textContent = erro.message;
+        }
+    }
+}
+
+desenhar(); // tela vazia enquanto a API responde
+iniciar();
