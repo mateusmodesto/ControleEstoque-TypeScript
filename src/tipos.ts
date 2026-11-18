@@ -6,10 +6,35 @@ export interface Produto {
     nome: string;
     descricao?: string;
     categoria: Categoria;
+    setorId: number;
+    setorNome: string; // o setor responsável pelo produto
     quantidade: number;
     estoqueMinimo: number;
     preco: number;
     criadoEm: Date;
+}
+
+// Quem está logado (Aula 5)
+export type Perfil = "administrador" | "setor";
+
+export interface Setor {
+    id: number;
+    nome: string;
+}
+
+export interface Usuario {
+    id: number;
+    nome: string;
+    email: string;
+    perfil: Perfil; // administrador enxerga todos os setores
+    setorId: number | null;
+    setorNome: string | null;
+}
+
+// O que guardamos no navegador depois do login
+export interface Sessao {
+    token: string;
+    nome: string;
 }
 
 export type TipoMovimentacao = "cadastro" | "entrada" | "saida" | "exclusao";
@@ -19,6 +44,7 @@ export interface Movimentacao {
     readonly id: number;
     produtoId: number | null; // null quando o produto já foi excluído
     produtoNome: string;
+    setorNome: string;
     tipo: TipoMovimentacao;
     quantidade: number;
     saldo: number;
@@ -28,4 +54,5 @@ export interface Movimentacao {
 // O que o usuário informa ao cadastrar: o resto (id, data) o sistema preenche
 export type NovoProduto = Pick<Produto, "nome" | "categoria" | "quantidade" | "estoqueMinimo" | "preco"> & {
     descricao?: string;
+    setorId?: number; // só o administrador escolhe; os demais usam o próprio setor
 };

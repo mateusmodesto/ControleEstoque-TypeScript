@@ -1,21 +1,64 @@
 import { campo, elemento, janela, selecao } from "./dom";
 import {
     alterarQuantidade,
+    buscarEu,
     cadastrarProduto,
+    criarConta,
+    encerrarSessao,
+    entrar,
+    guardarSessao,
     listarMovimentacoes,
     listarMovimentacoesDoProduto,
     listarProdutos,
+    listarSetores,
     removerProduto,
+    sessaoAtual,
 } from "./api";
-import type { Categoria, Movimentacao, Produto, Situacao, TipoMovimentacao } from "./tipos";
-import { situacaoDoProduto, valorTotal } from "./servicos";
+import type { Categoria, Movimentacao, Produto, Setor, Situacao, TipoMovimentacao } from "./tipos";
+import { aplicarFiltros, contarPorSituacao, situacaoDoProduto, valorTotal, type Filtros } from "./servicos";
 
 elemento("nome-do-sistema").textContent = "Controle de Estoque";
-elemento("versao").textContent = "v0.4.0";
+elemento("versao").textContent = "v0.7.0";
 elemento("data-de-hoje").textContent = new Date().toLocaleDateString("pt-BR");
+
+// ---------- Tema claro/escuro (Aula 6) ----------
+type Tema = "claro" | "escuro";
+
+// Quem escolhe o tema na abertura da página é o script do <head> (index.html);
+// aqui só lemos o que ele colocou no <html>.
+function temaAtual(): Tema {
+    return document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro";
+}
+
+// O CSS troca a paleta olhando o atributo data-tema; o botão diz para onde vai trocar
+function mostrarTema(tema: Tema): void {
+    document.documentElement.dataset.tema = tema;
+    // o ícone mostra para onde vai trocar: sol no escuro, lua no claro
+    const botaoDoTema = elemento("botao-tema");
+    botaoDoTema.textContent = tema === "escuro" ? "☀" : "☾";
+    const dica = tema === "escuro" ? "Mudar para o tema claro" : "Mudar para o tema escuro";
+    botaoDoTema.title = dica;
+    botaoDoTema.setAttribute("aria-label", dica);
+}
+
+mostrarTema(temaAtual());
+
+elemento("botao-tema").addEventListener("click", () => {
+    const novo: Tema = temaAtual() === "escuro" ? "claro" : "escuro";
+    mostrarTema(novo);
+    try {
+        localStorage.setItem("estoque:tema", novo); // só guardamos quando a pessoa escolhe
+    } catch {
+        // sem armazenamento (janela anônima, por exemplo): o tema vale só nesta visita
+    }
+});
 
 // Começa vazia: quem preenche é a API (e por isso é let, não const)
 let lista: Produto[] = [];
+
+// O que está escolhido nos filtros agora (o estado da busca)
+const SEM_FILTROS: Filtros = { situacao: "todas", categoria: "todas", setorId: "todos", busca: "" };
+const filtros: Filtros = { ...SEM_FILTROS };
 
 const rotulosDeSituacao: Record<Situacao, string> = {
     normal: "Normal",
@@ -72,6 +115,11 @@ function criarLinha(produto: Produto): HTMLTableRowElement {
     categoria.textContent = rotulosDeCategoria[produto.categoria];
     celulaCategoria.append(categoria);
 
+    // só o administrador enxerga esta coluna (o CSS esconde para os demais)
+    const celulaSetor = document.createElement("td");
+    celulaSetor.className = "col-setor";
+    celulaSetor.textContent = produto.setorNome;
+
     const celulaQuantidade = document.createElement("td");
     celulaQuantidade.className = "tabela__numero";
     celulaQuantidade.textContent = `${produto.quantidade} un.`;
@@ -97,27 +145,33 @@ function criarLinha(produto: Produto): HTMLTableRowElement {
     const celulaAcoes = document.createElement("td");
     celulaAcoes.append(botao("Editar", "", () => abrirEdicao(produto.id)));
 
-    linha.append(celulaNome, celulaCategoria, celulaQuantidade, celulaPreco, celulaSituacao, celulaData, celulaAcoes);
+    linha.append(celulaNome, celulaCategoria, celulaSetor, celulaQuantidade, celulaPreco, celulaSituacao, celulaData, celulaAcoes);
     return linha;
 }
 
 // Linha exibida quando não há nenhum produto cadastrado
-function criarLinhaVazia(): HTMLTableRowElement {
+function criarLinhaVazia(mensagem: string): HTMLTableRowElement {
     const linha = document.createElement("tr");
     const celula = document.createElement("td");
-    celula.colSpan = 7;
+    celula.colSpan = 8;
     celula.className = "tabela__vazio";
-    celula.textContent = "Nenhum produto cadastrado.";
+    celula.textContent = mensagem;
     linha.append(celula);
     return linha;
 }
 
 // A função que desenha a tela inteira a partir da lista
 function desenhar(): void {
+    // A tabela mostra só os produtos que passam nos filtros...
+    const visiveis = aplicarFiltros(lista, filtros);
     // map: cada produto vira uma linha da tabela
-    const linhas = lista.map(criarLinha);
-    elemento("lista").replaceChildren(...(linhas.length > 0 ? linhas : [criarLinhaVazia()]));
+    const linhas = visiveis.map(criarLinha);
+    const semResultado =
+        lista.length === 0 ? "Nenhum produto cadastrado." : "Nenhum produto encontrado com esses filtros.";
+    elemento("lista").replaceChildren(...(linhas.length > 0 ? linhas : [criarLinhaVazia(semResultado)]));
+    atualizarFiltros(visiveis.length);
 
+    // ...mas os cartões e o aviso olham o estoque INTEIRO, filtrado ou não.
     // filter: só os que passam no teste
     const baixos = lista.filter((p) => situacaoDoProduto(p) !== "normal");
     // reduce: soma as quantidades de todos os produtos
@@ -142,6 +196,71 @@ function desenhar(): void {
 function mostrarErroDaTabela(erro: unknown): void {
     elemento("erro-tabela").textContent = erro instanceof Error ? erro.message : "Erro inesperado.";
 }
+
+// ---------- Filtros e busca (Aula 6) ----------
+function filtrosAtivos(): boolean {
+    return (
+        filtros.situacao !== "todas" ||
+        filtros.categoria !== "todas" ||
+        filtros.setorId !== "todos" ||
+        filtros.busca.trim() !== ""
+    );
+}
+
+// Atualiza o que muda junto com os filtros: botão ativo, contagens e o resumo
+function atualizarFiltros(quantidadeVisivel: number): void {
+    const contagem = contarPorSituacao(lista); // reduce: os números dos botões
+    elemento("conta-todas").textContent = String(lista.length);
+    elemento("conta-normal").textContent = String(contagem.normal);
+    elemento("conta-baixo").textContent = String(contagem.baixo);
+    elemento("conta-esgotado").textContent = String(contagem.esgotado);
+
+    for (const botaoDeFiltro of elemento("filtros-situacao").querySelectorAll("button")) {
+        botaoDeFiltro.classList.toggle("filtro--ativo", botaoDeFiltro.dataset.situacao === filtros.situacao);
+    }
+
+    const resumo = elemento("resumo-filtro");
+    resumo.hidden = !filtrosAtivos();
+    elemento("resumo-texto").textContent = `Mostrando ${quantidadeVisivel} de ${lista.length} produtos`;
+}
+
+// Volta tudo ao normal: o estado E os campos da tela
+function limparFiltros(): void {
+    Object.assign(filtros, SEM_FILTROS);
+    campo("busca").value = "";
+    selecao("filtro-categoria").value = "";
+    selecao("filtro-setor").value = "";
+}
+
+elemento("filtros-situacao").addEventListener("click", (evento) => {
+    // o clique pode cair no número dentro do botão: closest sobe até o <button>
+    const alvo = evento.target instanceof HTMLElement ? evento.target.closest("button") : null;
+    const escolhida = alvo?.dataset.situacao;
+    if (!escolhida) return;
+    filtros.situacao = escolhida as Filtros["situacao"];
+    desenhar();
+});
+
+selecao("filtro-categoria").addEventListener("change", () => {
+    filtros.categoria = (selecao("filtro-categoria").value || "todas") as Filtros["categoria"];
+    desenhar();
+});
+
+selecao("filtro-setor").addEventListener("change", () => {
+    const escolhido = selecao("filtro-setor").value;
+    filtros.setorId = escolhido === "" ? "todos" : Number(escolhido);
+    desenhar();
+});
+
+campo("busca").addEventListener("input", () => {
+    filtros.busca = campo("busca").value;
+    desenhar(); // a cada letra digitada a tabela se refaz
+});
+
+elemento("limpar-filtros").addEventListener("click", () => {
+    limparFiltros();
+    desenhar();
+});
 
 // ---------- Histórico de movimentações (o log) ----------
 let movimentacoes: Movimentacao[] = [];
@@ -171,6 +290,10 @@ function criarLinhaDeMovimento(mov: Movimentacao): HTMLTableRowElement {
     celulaProduto.className = "produto__nome";
     celulaProduto.textContent = mov.produtoNome;
 
+    const celulaSetor = document.createElement("td");
+    celulaSetor.className = "col-setor";
+    celulaSetor.textContent = mov.setorNome;
+
     const celulaTipo = document.createElement("td");
     const etiqueta = document.createElement("span");
     etiqueta.className = `etiqueta etiqueta--${mov.tipo}`;
@@ -186,7 +309,7 @@ function criarLinhaDeMovimento(mov: Movimentacao): HTMLTableRowElement {
     celulaSaldo.className = "tabela__numero";
     celulaSaldo.textContent = `${mov.saldo} un.`;
 
-    linha.append(celulaQuando, celulaProduto, celulaTipo, celulaQuanto, celulaSaldo);
+    linha.append(celulaQuando, celulaProduto, celulaSetor, celulaTipo, celulaQuanto, celulaSaldo);
     return linha;
 }
 
@@ -195,7 +318,7 @@ function desenharHistorico(): void {
     if (linhas.length === 0) {
         const vazia = document.createElement("tr");
         const celula = document.createElement("td");
-        celula.colSpan = 5;
+        celula.colSpan = 6;
         celula.className = "tabela__vazio";
         celula.textContent = "Nenhuma movimentação registrada.";
         vazia.append(celula);
@@ -277,6 +400,7 @@ function preencherEdicao(produto: Produto): void {
     const situacao = situacaoDoProduto(produto);
     elemento("edicao-nome").textContent = `#${produto.id} ${produto.nome}`;
     elemento("edicao-categoria").textContent = rotulosDeCategoria[produto.categoria];
+    elemento("edicao-setor").textContent = produto.setorNome;
     elemento("edicao-preco").textContent = formatarMoeda(produto.preco);
     elemento("edicao-minimo").textContent = `${produto.estoqueMinimo} un.`;
     elemento("edicao-situacao").textContent = rotulosDeSituacao[situacao];
@@ -381,14 +505,19 @@ elemento("formulario").addEventListener("submit", async (evento) => {
     evento.preventDefault(); // sem isto, a página recarrega e tudo se perde
     elemento("erro").textContent = "";
     try {
+        // O administrador escolhe o setor; para os demais o campo nem aparece
+        // e a API usa o setor de quem está logado.
+        const ehAdmin = document.body.dataset.perfil === "administrador";
         const novo = await cadastrarProduto({
             nome: campo("nome").value.trim(),
             categoria: selecao("categoria").value as Categoria,
+            setorId: ehAdmin ? Number(selecao("setor").value) : undefined,
             quantidade: campo("quantidade").valueAsNumber,
             estoqueMinimo: campo("minimo").valueAsNumber,
             preco: campo("preco").valueAsNumber,
         });
         lista = [...lista, novo]; // acrescentar sem alterar: uma lista nova
+        limparFiltros(); // senão o produto novo poderia ficar escondido por um filtro
         campo("nome").value = "";
         campo("quantidade").value = "0";
         campo("preco").value = "";
@@ -400,8 +529,112 @@ elemento("formulario").addEventListener("submit", async (evento) => {
     }
 });
 
-async function iniciar(): Promise<void> {
+// ---------- Entrada: login e criação de conta (Aula 5) ----------
+function mostrarErroEntrada(erro: unknown): void {
+    elemento("erro-entrada").textContent = erro instanceof Error ? erro.message : "Erro inesperado.";
+}
+
+// ---------- Setores ----------
+// Preenche um <select> com os setores, mantendo a opção "Selecione..." do HTML
+function preencherSetores(caixa: HTMLSelectElement, setores: Setor[]): void {
+    const marcador = caixa.querySelector<HTMLOptionElement>('option[value=""]');
+    const opcoes = setores.map((setor) => {
+        const opcao = document.createElement("option");
+        opcao.value = String(setor.id);
+        opcao.textContent = setor.nome;
+        return opcao;
+    });
+    caixa.replaceChildren(...(marcador ? [marcador] : []), ...opcoes);
+}
+
+// A lista é pública: serve à tela de criar conta e ao cadastro do administrador
+async function carregarSetores(): Promise<void> {
     try {
+        const setores = await listarSetores();
+        preencherSetores(selecao("criar-setor"), setores);
+        preencherSetores(selecao("setor"), setores);
+        preencherSetores(selecao("filtro-setor"), setores);
+    } catch (erro) {
+        mostrarErroEntrada(erro);
+    }
+}
+
+// criando = true mostra "Criar conta"; false mostra "Entrar"
+function mostrarFormulario(criando: boolean): void {
+    elemento("form-criar").hidden = !criando;
+    elemento("form-entrar").hidden = criando;
+    elemento("entrada-titulo").textContent = criando ? "Criar conta" : "Entrar";
+    elemento("entrada-texto").textContent = criando
+        ? "Preencha os dados para começar a usar o sistema."
+        : "Acesse o controle de estoque com a sua conta.";
+    elemento("alternar-entrada").textContent = criando ? "Já tenho conta" : "Ainda não tenho conta";
+    elemento("erro-entrada").textContent = "";
+}
+
+elemento("alternar-entrada").addEventListener("click", () => {
+    mostrarFormulario(elemento("form-criar").hidden === true); // escondido? então mostra
+});
+
+elemento("form-entrar").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    elemento("erro-entrada").textContent = "";
+    try {
+        guardarSessao(await entrar(campo("entrar-email").value, campo("entrar-senha").value));
+        campo("entrar-senha").value = ""; // não deixa a senha no campo
+        await iniciar();
+    } catch (erro) {
+        mostrarErroEntrada(erro);
+    }
+});
+
+elemento("form-criar").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    elemento("erro-entrada").textContent = "";
+    const email = campo("criar-email").value;
+    const senha = campo("criar-senha").value;
+    try {
+        await criarConta(campo("criar-nome").value, email, senha, Number(selecao("criar-setor").value));
+        guardarSessao(await entrar(email, senha)); // já entra direto
+        (elemento("form-criar") as HTMLFormElement).reset();
+        await iniciar();
+    } catch (erro) {
+        mostrarErroEntrada(erro);
+    }
+});
+
+elemento("botao-sair").addEventListener("click", () => {
+    encerrarSessao();
+    lista = []; // nada do usuário anterior fica na memória nem na tela
+    limparFiltros(); // o próximo a entrar não herda a busca de quem saiu
+    movimentacoes = [];
+    desenhar();
+    desenharHistorico();
+    delete document.body.dataset.perfil; // some tudo que é só do administrador
+    (elemento("form-entrar") as HTMLFormElement).reset();
+    mostrarFormulario(false); // volta sempre para "Entrar"
+    void iniciar();
+});
+
+// ---------- Começo do programa ----------
+// Mostra a tela de entrada ou o sistema, conforme exista uma sessão
+async function iniciar(): Promise<void> {
+    const sessao = sessaoAtual();
+    elemento("tela-entrada").hidden = sessao !== undefined;
+    elemento("tela-app").hidden = sessao === undefined;
+    elemento("area-usuario").hidden = sessao === undefined;
+    elemento("usuario-nome").textContent = "";
+    elemento("usuario-setor").textContent = "";
+    elemento("usuario-inicial").textContent = "";
+    if (!sessao) return;
+
+    elemento("erro-tabela").textContent = "";
+    try {
+        // o nome e o perfil vêm da API, não do que está guardado no navegador
+        const eu = await buscarEu();
+        document.body.dataset.perfil = eu.perfil; // o CSS usa isto para mostrar ou esconder o que é do administrador
+        elemento("usuario-nome").textContent = eu.nome;
+        elemento("usuario-setor").textContent = eu.perfil === "administrador" ? "Acesso total" : (eu.setorNome ?? "");
+        elemento("usuario-inicial").textContent = eu.nome.trim().charAt(0).toUpperCase(); // a bolinha com a inicial
         lista = await listarProdutos();
         desenhar();
         await carregarHistorico();
@@ -412,4 +645,5 @@ async function iniciar(): Promise<void> {
 
 desenhar(); // tela vazia enquanto a API responde
 desenharHistorico();
-iniciar();
+void carregarSetores();
+void iniciar();

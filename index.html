@@ -7,19 +7,97 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@600&display=swap" rel="stylesheet" />
+    <!-- Escolhe o tema ANTES da página aparecer, para não piscar o tema errado.
+         Ordem: o que a pessoa escolheu da última vez; senão, o tema do sistema dela. -->
+    <script>
+      try {
+        var tema = localStorage.getItem("estoque:tema");
+        if (tema !== "claro" && tema !== "escuro") {
+          tema = matchMedia("(prefers-color-scheme: dark)").matches ? "escuro" : "claro";
+        }
+        document.documentElement.dataset.tema = tema;
+      } catch (erro) {}
+    </script>
     <link rel="stylesheet" href="./css/estoque.css" />
   </head>
   <body>
     <header class="cabecalho">
       <div class="cabecalho__conteudo">
-        <div class="cabecalho__logo" aria-hidden="true">▦</div>
-        <div>
+        <div class="cabecalho__marca">
+          <div class="cabecalho__logo" aria-hidden="true">▦</div>
           <h1 class="cabecalho__titulo"><span id="nome-do-sistema">—</span></h1>
-          <p class="cabecalho__subtitulo"><span id="versao">—</span> · <span id="data-de-hoje">—</span></p>
+        </div>
+        <div class="cabecalho__acoes">
+          <button class="botao-icone" id="botao-tema" type="button" aria-label="Alternar tema" title="Alternar tema">☾</button>
+          <div class="cabecalho__usuario" id="area-usuario" hidden>
+            <div class="usuario">
+              <span class="usuario__inicial" id="usuario-inicial" aria-hidden="true"></span>
+              <span class="usuario__dados">
+                <span class="usuario__nome" id="usuario-nome"></span>
+                <span class="usuario__linha">
+                  <span class="usuario__setor" id="usuario-setor"></span>
+                  <button class="botao-sair" id="botao-sair" type="button" aria-label="Sair" title="Sair">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                  </button>
+                </span>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </header>
-    <main>
+
+    <!-- Tela de entrada (Aula 5): aparece enquanto não há sessão -->
+    <section class="entrada" id="tela-entrada">
+      <div class="entrada__cartao">
+        <h2 class="entrada__titulo" id="entrada-titulo">Entrar</h2>
+        <p class="entrada__texto" id="entrada-texto">Acesse o controle de estoque com a sua conta.</p>
+
+        <form class="entrada__form" id="form-entrar">
+          <div class="campo">
+            <label class="campo__rotulo" for="entrar-email">E-mail</label>
+            <input class="campo__entrada" id="entrar-email" type="email" autocomplete="username" placeholder="voce@empresa.com" />
+          </div>
+          <div class="campo">
+            <label class="campo__rotulo" for="entrar-senha">Senha</label>
+            <input class="campo__entrada" id="entrar-senha" type="password" autocomplete="current-password" />
+          </div>
+          <button class="botao botao--primario botao--cheio" type="submit">Entrar</button>
+        </form>
+
+        <form class="entrada__form" id="form-criar" hidden>
+          <div class="campo">
+            <label class="campo__rotulo" for="criar-nome">Nome</label>
+            <input class="campo__entrada" id="criar-nome" type="text" autocomplete="name" />
+          </div>
+          <div class="campo">
+            <label class="campo__rotulo" for="criar-email">E-mail</label>
+            <input class="campo__entrada" id="criar-email" type="email" autocomplete="username" />
+          </div>
+          <div class="campo">
+            <label class="campo__rotulo" for="criar-setor">Setor</label>
+            <select class="campo__selecao" id="criar-setor">
+              <option value="" selected disabled>Selecione o seu setor</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label class="campo__rotulo" for="criar-senha">Senha (6 caracteres ou mais)</label>
+            <input class="campo__entrada" id="criar-senha" type="password" autocomplete="new-password" />
+          </div>
+          <button class="botao botao--primario botao--cheio" type="submit">Criar conta</button>
+        </form>
+
+        <p class="campo__erro" id="erro-entrada" role="alert"></p>
+        <button class="entrada__alternar" id="alternar-entrada" type="button">Ainda não tenho conta</button>
+      </div>
+    </section>
+
+    <!-- O sistema: só aparece depois do login -->
+    <main id="tela-app" hidden>
       <ul class="estatisticas">
         <li class="estatistica estatistica--azul">
           <span class="estatistica__rotulo">Produtos</span>
@@ -50,6 +128,12 @@
           <div class="campo campo--largo">
             <label class="campo__rotulo" for="nome">Nome</label>
             <input class="campo__entrada" id="nome" type="text" autocomplete="off" placeholder="Ex.: Arroz 5kg" />
+          </div>
+          <div class="campo campo--largo somente-admin">
+            <label class="campo__rotulo" for="setor">Setor responsável</label>
+            <select class="campo__selecao" id="setor">
+              <option value="" selected disabled>Selecione o setor</option>
+            </select>
           </div>
           <div class="campo">
             <label class="campo__rotulo" for="categoria">Categoria</label>
@@ -86,6 +170,7 @@
           <dl class="detalhes">
             <div class="detalhes__item detalhes__item--largo"><dt>Produto</dt><dd id="edicao-nome">—</dd></div>
             <div class="detalhes__item"><dt>Categoria</dt><dd id="edicao-categoria">—</dd></div>
+            <div class="detalhes__item"><dt>Setor responsável</dt><dd id="edicao-setor">—</dd></div>
             <div class="detalhes__item"><dt>Preço</dt><dd id="edicao-preco">—</dd></div>
             <div class="detalhes__item"><dt>Estoque mínimo</dt><dd id="edicao-minimo">—</dd></div>
             <div class="detalhes__item"><dt>Situação</dt><dd id="edicao-situacao">—</dd></div>
@@ -116,12 +201,39 @@
       <p class="campo__erro" id="erro-tabela" role="alert"></p>
       <p class="aviso" id="repor" hidden></p>
 
+      <div class="filtros">
+        <div class="filtros__grupo" id="filtros-situacao">
+          <button class="filtro filtro--ativo" type="button" data-situacao="todas">Todos <span class="filtro__contagem" id="conta-todas">0</span></button>
+          <button class="filtro" type="button" data-situacao="normal">Normal <span class="filtro__contagem" id="conta-normal">0</span></button>
+          <button class="filtro" type="button" data-situacao="baixo">Estoque baixo <span class="filtro__contagem" id="conta-baixo">0</span></button>
+          <button class="filtro" type="button" data-situacao="esgotado">Esgotado <span class="filtro__contagem" id="conta-esgotado">0</span></button>
+        </div>
+        <div class="filtros__campos">
+          <select class="campo__selecao" id="filtro-categoria" aria-label="Filtrar por categoria">
+            <option value="">Todas as categorias</option>
+            <option value="alimentos">Alimentos</option>
+            <option value="limpeza">Limpeza</option>
+            <option value="papelaria">Papelaria</option>
+            <option value="eletronicos">Eletrônicos</option>
+          </select>
+          <select class="campo__selecao somente-admin" id="filtro-setor" aria-label="Filtrar por setor">
+            <option value="">Todos os setores</option>
+          </select>
+          <input class="campo__entrada" id="busca" type="search" autocomplete="off" placeholder="Pesquisar por nome ou descrição..." aria-label="Pesquisar produtos" />
+        </div>
+      </div>
+      <p class="filtros__resumo" id="resumo-filtro" hidden>
+        <span id="resumo-texto"></span>
+        <button class="botao botao--pequeno" id="limpar-filtros" type="button">Limpar filtros</button>
+      </p>
+
       <div class="tabela-wrapper">
         <table class="tabela">
           <thead>
             <tr>
               <th class="tabela__produto">Produto</th>
               <th>Categoria</th>
+              <th class="col-setor">Setor</th>
               <th>Quantidade</th>
               <th>Preço</th>
               <th>Situação</th>
@@ -142,6 +254,7 @@
             <tr>
               <th>Quando</th>
               <th>Produto</th>
+              <th class="col-setor">Setor</th>
               <th>Movimento</th>
               <th>Quanto</th>
               <th>Saldo</th>
@@ -151,6 +264,9 @@
         </table>
       </div>
     </main>
+    <footer class="rodape">
+      Controle de Estoque · <span id="versao">—</span> · <span id="data-de-hoje">—</span>
+    </footer>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
