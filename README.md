@@ -27,6 +27,7 @@ api/src/
 ├── rotas/          HTTP: lê o pedido e escolhe o código da resposta
 ├── servicos/       regras do negócio: validar, decidir, controlar a transação
 ├── dados/          só SQL
+├── banco.ts        conexão com o MySQL e a função de transação
 ├── tipos.ts        os tipos usados pelas três camadas
 ├── erros.ts        ErroHttp: o erro que já carrega o código HTTP (400, 404, 409...)
 └── autenticacao.ts middleware de login (token JWT)
