@@ -14,11 +14,11 @@ import {
     removerProduto,
     sessaoAtual,
 } from "./api";
-import type { Categoria, Movimentacao, Produto, Setor, Situacao, TipoMovimentacao } from "./tipos";
-import { aplicarFiltros, contarPorSituacao, situacaoDoProduto, valorTotal, type Filtros } from "./servicos";
+import type { Categoria, Filtros, Movimentacao, Produto, Setor, Situacao, TipoMovimentacao } from "./tipos";
+import { contarPorSituacao, situacaoDoProduto, valorTotal } from "./servicos";
 
 elemento("nome-do-sistema").textContent = "Controle de Estoque";
-elemento("versao").textContent = "v0.7.0";
+elemento("versao").textContent = "v0.8.0";
 elemento("data-de-hoje").textContent = new Date().toLocaleDateString("pt-BR");
 
 // ---------- Tema claro/escuro (Aula 6) ----------
@@ -59,6 +59,13 @@ let lista: Produto[] = [];
 // O que está escolhido nos filtros agora (o estado da busca)
 const SEM_FILTROS: Filtros = { situacao: "todas", categoria: "todas", setorId: "todos", busca: "" };
 const filtros: Filtros = { ...SEM_FILTROS };
+
+// Dois "retratos" do estoque, cada um com uma função:
+//   lista             = o estoque INTEIRO (cartões, contagens, aviso, pop-up de edição)
+//   produtosFiltrados = o que o BANCO devolveu para os filtros atuais (a tabela)
+let produtosFiltrados: Produto[] = [];
+// Numera cada pedido de filtro: se chegar uma resposta velha depois de uma nova, ela é descartada
+let numeroDoPedido = 0;
 
 const rotulosDeSituacao: Record<Situacao, string> = {
     normal: "Normal",
@@ -162,8 +169,8 @@ function criarLinhaVazia(mensagem: string): HTMLTableRowElement {
 
 // A função que desenha a tela inteira a partir da lista
 function desenhar(): void {
-    // A tabela mostra só os produtos que passam nos filtros...
-    const visiveis = aplicarFiltros(lista, filtros);
+    // A tabela mostra só os produtos que passam nos filtros (quem filtrou foi o banco)...
+    const visiveis = filtrosAtivos() ? produtosFiltrados : lista;
     // map: cada produto vira uma linha da tabela
     const linhas = visiveis.map(criarLinha);
     const semResultado =
@@ -224,8 +231,27 @@ function atualizarFiltros(quantidadeVisivel: number): void {
     elemento("resumo-texto").textContent = `Mostrando ${quantidadeVisivel} de ${lista.length} produtos`;
 }
 
+// Pede ao banco os produtos que passam nos filtros atuais e redesenha a tabela.
+// Sem nenhum filtro ligado não precisa perguntar: a tabela é o estoque inteiro.
+async function carregarTabela(): Promise<void> {
+    const meuNumero = ++numeroDoPedido;
+    if (!filtrosAtivos()) {
+        desenhar();
+        return;
+    }
+    try {
+        const resultado = await listarProdutos(filtros);
+        if (meuNumero !== numeroDoPedido) return; // já saiu um pedido mais novo: esta resposta está velha
+        produtosFiltrados = resultado;
+        desenhar();
+    } catch (erro) {
+        mostrarErroDaTabela(erro);
+    }
+}
+
 // Volta tudo ao normal: o estado E os campos da tela
 function limparFiltros(): void {
+    numeroDoPedido++; // qualquer resposta que ainda esteja a caminho deixa de valer
     Object.assign(filtros, SEM_FILTROS);
     campo("busca").value = "";
     selecao("filtro-categoria").value = "";
@@ -238,26 +264,30 @@ elemento("filtros-situacao").addEventListener("click", (evento) => {
     const escolhida = alvo?.dataset.situacao;
     if (!escolhida) return;
     filtros.situacao = escolhida as Filtros["situacao"];
-    desenhar();
+    void carregarTabela();
 });
 
 selecao("filtro-categoria").addEventListener("change", () => {
     filtros.categoria = (selecao("filtro-categoria").value || "todas") as Filtros["categoria"];
-    desenhar();
+    void carregarTabela();
 });
 
 selecao("filtro-setor").addEventListener("change", () => {
     const escolhido = selecao("filtro-setor").value;
     filtros.setorId = escolhido === "" ? "todos" : Number(escolhido);
-    desenhar();
+    void carregarTabela();
 });
 
+// Na busca, esperar a pessoa parar de digitar (250 ms) evita um pedido ao banco por letra
+let temporizadorDaBusca: number | undefined;
 campo("busca").addEventListener("input", () => {
     filtros.busca = campo("busca").value;
-    desenhar(); // a cada letra digitada a tabela se refaz
+    window.clearTimeout(temporizadorDaBusca);
+    temporizadorDaBusca = window.setTimeout(() => void carregarTabela(), 250);
 });
 
 elemento("limpar-filtros").addEventListener("click", () => {
+    window.clearTimeout(temporizadorDaBusca);
     limparFiltros();
     desenhar();
 });
@@ -441,6 +471,7 @@ async function movimentar(sinal: 1 | -1): Promise<void> {
         await alterarQuantidade(produto.id, quantidade);
         lista = lista.map((p) => (p.id === produto.id ? { ...p, quantidade } : p));
         desenhar();
+        void carregarTabela(); // a quantidade mudou: o produto pode entrar ou sair do filtro atual
         void carregarHistorico();
         void carregarHistoricoDoProduto(produto.id);
         const atualizado = produtoEmEdicao();
@@ -461,6 +492,7 @@ async function excluir(): Promise<void> {
         await removerProduto(produto.id);
         lista = lista.filter((p) => p.id !== produto.id);
         desenhar();
+        void carregarTabela();
         void carregarHistorico();
         janelaEdicao.close();
     } catch (erro) {
@@ -605,6 +637,7 @@ elemento("form-criar").addEventListener("submit", async (evento) => {
 elemento("botao-sair").addEventListener("click", () => {
     encerrarSessao();
     lista = []; // nada do usuário anterior fica na memória nem na tela
+    produtosFiltrados = [];
     limparFiltros(); // o próximo a entrar não herda a busca de quem saiu
     movimentacoes = [];
     desenhar();

@@ -1,70 +1,73 @@
 # Controle de Estoque
 
-Sistema simples de controle de estoque feito com **TypeScript** e **Vite**, desenvolvido nas aulas 01 a 04 de TypeScript.
+Sistema de controle de estoque por setor, feito com **TypeScript**: front-end com Vite, API em Node.js (Express) e banco MySQL. Desenvolvido nas aulas de TypeScript.
 
 Repositório: https://github.com/mateusmodesto/ControleEstoque-TypeScript
 
 ## Funcionalidades
 
-- Cadastro de produtos (nome, categoria, quantidade, estoque mínimo e preço) com validação
-- Tabela de produtos com situação: normal, estoque baixo ou esgotado
-- Painel com total de produtos, itens em estoque, estoque baixo e valor total
-- Aviso do primeiro produto que precisa de reposição
+- **Login** com senha criptografada (bcrypt) e sessão por token JWT
+- **Setores:** cada produto tem um setor responsável e cada usuário só enxerga o seu setor; o administrador enxerga todos
+- **Produtos:** cadastrar, listar, dar entrada e saída de estoque e excluir, tudo em pop-ups
+- **Histórico de movimentações** (o log): qual produto, quando e quanto, geral e por produto
+- **Filtros e busca** feitos pelo banco: por situação, categoria, setor e por nome ou descrição
+- Painel com totais, aviso de reposição e tema claro/escuro
 
-## Estrutura
+## Arquitetura
 
-| Arquivo | Função |
-| --- | --- |
-| `src/tipos.ts` | Tipos e interfaces (`Produto`, `NovoProduto`, ...) |
-| `src/servicos.ts` | `situacaoDoProduto`, `valorTotal` e a função genérica `transformar` |
-| `src/dom.ts` | Acesso aos elementos da tela |
-| `src/main.ts` | Desenha a tela e trata o formulário |
+```
+ Navegador (TypeScript + Vite)  →  API (Express)  →  MySQL
+```
 
-## Aulas 03 e 04: API e banco de dados
+A API é separada em três camadas, cada uma com uma única responsabilidade:
 
-Os produtos vêm de uma API (Express + MySQL) e o front se comunica com ela por `fetch`:
+```
+api/src/
+├── servidor.ts     liga as peças (rotas, login, tratamento de erros)
+├── rotas/          HTTP: lê o pedido e escolhe o código da resposta
+├── servicos/       regras do negócio: validar, decidir, controlar a transação
+├── dados/          só SQL
+├── tipos.ts        os tipos usados pelas três camadas
+├── erros.ts        ErroHttp: o erro que já carrega o código HTTP (400, 404, 409...)
+└── autenticacao.ts middleware de login (token JWT)
+```
+
+A rota nunca vê SQL, e o SQL nunca vê HTTP. Os serviços lançam `ErroHttp` e um único middleware transforma o erro em resposta.
+
+No front (`src/`): `tipos.ts` (interfaces), `api.ts` (chamadas à API), `servicos.ts` (cálculos), `dom.ts` (acesso à tela) e `main.ts` (desenha a tela e trata os eventos).
+
+## Rotas
 
 | Rota | O que faz |
 | --- | --- |
-| `GET /api/produtos` | Lista todos os produtos |
+| `GET /api/produtos` | Lista os produtos, com filtros opcionais (veja abaixo) |
 | `GET /api/produtos/:id` | Devolve um produto (404 se não existir) |
 | `POST /api/produtos` | Cadastra um produto (400 se os dados forem inválidos) |
 | `PATCH /api/produtos/:id/quantidade` | Dá entrada ou saída no estoque |
 | `DELETE /api/produtos/:id` | Remove um produto |
-| `GET /api/movimentacoes` | Histórico (log): qual produto, quando e quanto |
+| `GET /api/produtos/:id/movimentacoes` | O log de um único produto |
+| `GET /api/movimentacoes` | O log geral (as 50 mais recentes) |
+| `GET /api/setores` | Lista os setores (público) |
 | `POST /api/usuarios` | Cria uma conta (público) |
-| `POST /api/login` | Confere e-mail e senha e devolve um token JWT (público) |
-| `GET /api/eu` | Dados de quem está logado (nome, perfil e setor) |
-| `GET /api/setores` | Lista os setores (público: a tela de criar conta usa) |
+| `POST /api/login` | Devolve um token JWT (público) |
+| `GET /api/eu` | Dados de quem está logado |
 
-Todas as rotas de produtos e movimentações exigem login: sem token válido a resposta é 401.
+Produtos e movimentações exigem login: sem token válido, a resposta é 401.
+
+### Filtros (feitos no banco)
+
+`GET /api/produtos?situacao=baixo&categoria=limpeza&setorId=3&busca=deter`
+
+Todos os parâmetros são opcionais e se combinam. `situacao` aceita `normal`, `baixo` e `esgotado`. A `busca` procura no nome e na descrição, sem diferenciar maiúscula nem acento. Valores inválidos recebem 400.
 
 ### Setores e permissões
 
-Cada produto pertence a um **setor responsável** (T.I., Administrativo, Serviços Gerais, Cozinha) e cada usuário pertence a um setor.
-
 | Perfil | O que enxerga e pode fazer |
 | --- | --- |
-| **Administrador** | Todos os produtos e movimentações, de todos os setores. Ao cadastrar um produto, escolhe o setor. |
-| **Setor** (ex.: T.I.) | Só os produtos e o histórico do próprio setor. Os produtos que cadastra ficam sempre no próprio setor. |
+| **Administrador** | Todos os produtos e movimentações. Ao cadastrar um produto, escolhe o setor. |
+| **Setor** (ex.: T.I.) | Só os produtos e o histórico do próprio setor. O que cadastra fica sempre no próprio setor. |
 
-A regra é aplicada **na API**, não só na tela: um usuário de setor que peça, altere ou apague um produto de outro setor recebe 404, como se ele não existisse. Contas criadas pela tela são sempre de setor; o administrador só existe por dentro do banco.
-| `GET /api/produtos/:id/movimentacoes` | O log de um único produto |
-
-Cada cadastro, entrada, saída e exclusão é gravado na tabela `movimentacoes` e aparece em **Histórico de movimentações**, no fim da página.
-
-Na tela, o cadastro abre num pop-up. Cada linha da tabela tem um botão **Editar**, que abre outro pop-up com os dados do produto, onde dá para **adicionar** ou **retirar** unidades do estoque e **excluir** o produto.
-
-### Filtros e busca (Aula 6)
-
-Acima da tabela de produtos há filtros por **situação** (normal, estoque baixo, esgotado, com a contagem em cada botão), por **categoria** e, para o administrador, por **setor**, além de uma **busca** por nome ou descrição que ignora acento e maiúscula. Os filtros se combinam e há um botão **Limpar filtros**. Só a tabela é filtrada: os cartões do topo e o aviso de reposição sempre mostram o estoque inteiro.
-
-| Arquivo | Função |
-| --- | --- |
-| `sql/estoque.sql` | Cria o banco `estoque` com as tabelas `setores`, `usuarios`, `produtos` e `movimentacoes` e dados de exemplo |
-| `api/src/servidor.ts` | Rotas da API |
-| `api/src/banco.ts` | Conexão com o MySQL |
-| `src/api.ts` | `listarProdutos` e `buscarProduto` (usados pelo front) |
+A regra vale **na API**, não só na tela: quem pede, altera ou apaga um produto de outro setor recebe 404, como se ele não existisse. Contas criadas pela tela são sempre de setor; o administrador só existe por dentro do banco.
 
 ## Como rodar
 
@@ -78,9 +81,9 @@ npm run api    # terminal 1: API em http://localhost:3000
 npm run dev    # terminal 2: site em http://localhost:5173
 ```
 
-4. Abra http://localhost:5173 e entre com uma das contas de demonstração (senha `senha123`) ou crie uma conta escolhendo o setor:
+4. Abra http://localhost:5173 e entre com uma conta de demonstração (senha `senha123`) ou crie uma escolhendo o setor:
    - `admin@estoque.dev`: administrador, vê todos os setores
-   - `ti@estoque.dev`: usuário do setor T.I., vê só os produtos do T.I.
+   - `ti@estoque.dev`: setor T.I., vê só os produtos do T.I.
 
 Para conferir os tipos: `npm run verificar` (e `npm --prefix api run verificar` para a API).
 

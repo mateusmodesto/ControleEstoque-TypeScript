@@ -37,6 +37,15 @@ export interface Sessao {
     nome: string;
 }
 
+// O que está escolhido nos filtros da tela. Vira a query string de GET /api/produtos;
+// "todas"/"todos" = sem filtro nesse critério (e o parâmetro nem vai na URL).
+export interface Filtros {
+    situacao: Situacao | "todas";
+    categoria: Categoria | "todas";
+    setorId: number | "todos";
+    busca: string;
+}
+
 export type TipoMovimentacao = "cadastro" | "entrada" | "saida" | "exclusao";
 
 // Uma linha do log: qual produto, quando e quanto

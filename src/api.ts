@@ -1,4 +1,4 @@
-import type { Movimentacao, NovoProduto, Produto, Sessao, Setor, Usuario } from "./tipos";
+import type { Filtros, Movimentacao, NovoProduto, Produto, Sessao, Setor, Usuario } from "./tipos";
 
 const CHAVE_SESSAO = "estoque:sessao";
 
@@ -53,8 +53,18 @@ function converter(produto: Produto): Produto {
   return { ...produto, criadoEm: new Date(produto.criadoEm) };
 }
 
-export async function listarProdutos(): Promise<Produto[]> {
-  const resposta = await enviar("GET", "/api/produtos");
+// Sem filtros: o estoque inteiro. Com filtros: quem filtra é o BANCO (WHERE),
+// e só o que está ligado vai na URL, ex.: /api/produtos?situacao=baixo&busca=feij
+export async function listarProdutos(filtros?: Filtros): Promise<Produto[]> {
+  const parametros = new URLSearchParams(); // já cuida de acentos e caracteres especiais
+  if (filtros) {
+    if (filtros.situacao !== "todas") parametros.set("situacao", filtros.situacao);
+    if (filtros.categoria !== "todas") parametros.set("categoria", filtros.categoria);
+    if (filtros.setorId !== "todos") parametros.set("setorId", String(filtros.setorId));
+    if (filtros.busca.trim() !== "") parametros.set("busca", filtros.busca.trim());
+  }
+  const consulta = parametros.toString();
+  const resposta = await enviar("GET", consulta === "" ? "/api/produtos" : `/api/produtos?${consulta}`);
   const bruto = (await resposta.json()) as Produto[];
   return bruto.map(converter);
 }

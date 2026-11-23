@@ -1,16 +1,19 @@
-Controle de Estoque (TypeScript + Vite)
-=======================================
+Controle de Estoque (TypeScript + Vite + Express + MySQL)
+=========================================================
 
-  index.html          a página (os ids são usados pelo código)
-  css/estoque.css     a aparência
-  src/tipos.ts        Categoria, Situacao, Produto, NovoProduto
-  src/servicos.ts     adicionarProduto, situacaoDoProduto, valorTotal, transformar
-  src/dom.ts          funções de acesso à tela
-  src/main.ts         desenha a tela e trata o formulário
+A explicacao completa (arquitetura, rotas, permissoes e como rodar) esta no README.md.
 
-Como rodar
-1. npm install
-2. npm run dev   e abra http://localhost:5173
-3. npm run verificar   confere os tipos
+  index.html          a pagina (os ids sao usados pelo codigo)
+  css/estoque.css     a aparencia (tema claro e escuro)
+  src/                o front-end: tipos, api (fetch), servicos, dom e main
+  api/src/            a API em camadas: rotas, servicos e dados
+  sql/estoque.sql     cria o banco com as tabelas e os dados de exemplo
 
-Atenção: NÃO abra o index.html com dois cliques; use o npm run dev.
+Como rodar (resumo)
+1. Rode sql/estoque.sql no MySQL Workbench
+2. Em api/, copie .env.exemplo para .env e preencha a senha e o JWT_SEGREDO
+3. npm install && npm --prefix api install
+4. npm run api  (um terminal)  e  npm run dev  (outro terminal)
+5. Abra http://localhost:5173
+
+Atencao: NAO abra o index.html com dois cliques; use o npm run dev.
